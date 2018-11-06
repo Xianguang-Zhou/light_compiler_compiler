@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <boost/format.hpp>
 #include "Lexer.h"
 
 namespace Lcc {
@@ -13,19 +14,18 @@ namespace Lcc {
 Lexer::Lexer() {
 	list<string> tokenPatterns;
 	tokenPatterns.push_back(
-			"\"((\\\\\")|(\\\\\\\\)|[^\"(\\\\)]|\\(|\\)|(\\\\[a-zA-Z0']))+\"");
+			"\"((\\\\\")|(\\\\\\\\)|[^\"(\\\\)\r\n]|\\(|\\)|(\\\\[a-zA-Z0']))+\"");
 	tokenPatterns.push_back("[a-zA-Z][a-zA-Z0-9_]*");
 	tokenPatterns.push_back(":");
 	tokenPatterns.push_back(";");
 	tokenPatterns.push_back("\\|");
-	tokenPatterns.push_back("\\~");
 	tokenPatterns.push_back("\\*");
 	tokenPatterns.push_back("\\+");
 	tokenPatterns.push_back("\\?");
 	tokenPatterns.push_back("\\(");
 	tokenPatterns.push_back("\\)");
 	this->tokenTypesSize = tokenPatterns.size();
-	tokenPatterns.push_back("[\\s\t\r\n]+|(//[^\n]*)");
+	tokenPatterns.push_back("[\\s\t\r\n]+|(//[^\r\n]*)");
 
 	for (list<string>::const_iterator it = tokenPatterns.begin();
 			it != tokenPatterns.end(); it++) {
@@ -38,6 +38,8 @@ shared_ptr<list<shared_ptr<Lexer::Token>>> Lexer::generateTokens(
 	shared_ptr<list<shared_ptr<Token>>> tokensPtr(
 			new list<shared_ptr<Token>>());
 
+	int line = 1, column = 1;
+	int unmatchedLine, unmatchedColumn;
 	string buffer;
 	int lastTokenRegexIndex = this->tokenTypesSize;
 	for (string::const_iterator textIt = text.begin(); textIt != text.end();
@@ -56,9 +58,18 @@ shared_ptr<list<shared_ptr<Lexer::Token>>> Lexer::generateTokens(
 			}
 			buffer = character;
 			tokenRegexIndex = this->matchedToken(buffer);
+			unmatchedLine = line;
+			unmatchedColumn = column;
 		}
 
 		lastTokenRegexIndex = tokenRegexIndex;
+
+		if (character == '\n') {
+			++line;
+			column = 1;
+		} else {
+			++column;
+		}
 	}
 
 	if (isMatchedTokenRegex(lastTokenRegexIndex)) {
@@ -67,7 +78,9 @@ shared_ptr<list<shared_ptr<Lexer::Token>>> Lexer::generateTokens(
 					shared_ptr<Token>(new Token(lastTokenRegexIndex, buffer)));
 		}
 	} else {
-		throw LexerException("Unknown token: " + buffer);
+		throw LexerException(
+				(boost::format("Unknown token at line %1% and column %2%.")
+						% unmatchedLine % unmatchedColumn).str());
 	}
 
 	return tokensPtr;

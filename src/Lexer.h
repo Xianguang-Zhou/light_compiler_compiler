@@ -31,7 +31,6 @@ public:
 			COLON, // :
 			SEMICOLON, // ;
 			OR, // |
-			NOT, // ~
 			ZERO_OR_MORE, // *
 			ONE_OR_MORE, // +
 			ZERO_OR_ONE, // ?
